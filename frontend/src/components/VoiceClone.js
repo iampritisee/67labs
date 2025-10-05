@@ -8,10 +8,7 @@ export default function VoiceClone() {
   const [voiceName, setVoiceName] = useState("");
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
-
-  // Voice tag display
-  const displayVoiceName = "Cheryl";
-  const displayVoiceIcon = "🎤";
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
@@ -45,27 +42,16 @@ export default function VoiceClone() {
     <div>
       <h3>Clone Your Voice</h3>
       
-      {/* Voice Name Tag */}
-      <div style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '0.5rem',
-        padding: '0.5rem 1.25rem',
-        background: '#f1f5f9',
-        color: '#0f172a',
-        fontSize: '0.875rem',
-        fontWeight: '600',
-        borderRadius: '20px',
-        marginBottom: '1.5rem',
-        border: '1px solid #e2e8f0'
-      }}>
-        <span style={{ fontSize: '1.125rem' }}>{displayVoiceIcon}</span>
-        <span>{displayVoiceName}</span>
-      </div>
-      
       <form onSubmit={handleSubmit}>
         <div className="form-group">
-          
+          <label className="form-label">Voice Name</label>
+          <input
+            type="text"
+            placeholder="Enter a name for your voice"
+            value={voiceName}
+            onChange={(e) => setVoiceName(e.target.value)}
+            required
+          />
         </div>
 
         <div className="form-group">
@@ -100,10 +86,49 @@ export default function VoiceClone() {
           </div>
         </div>
 
+        {/* Terms and Conditions Checkbox */}
+        <div className="form-group" style={{ marginTop: '1rem' }}>
+          <label style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '0.5rem',
+            cursor: 'pointer',
+            fontSize: '0.875rem',
+            color: 'var(--text-primary)'
+          }}>
+            <input
+              type="checkbox"
+              checked={agreedToTerms}
+              onChange={(e) => setAgreedToTerms(e.target.checked)}
+              required
+              style={{
+                width: '18px',
+                height: '18px',
+                cursor: 'pointer'
+              }}
+            />
+            <span>
+              I agree to the{' '}
+              <a 
+                href="/terms" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                style={{ 
+                  color: 'var(--primary)', 
+                  textDecoration: 'underline',
+                  fontWeight: '600'
+                }}
+              >
+                Terms and Conditions
+              </a>
+            </span>
+          </label>
+        </div>
+
         <button 
           type="submit" 
           className={`btn btn-primary btn-full ${loading ? 'btn-loading' : ''}`}
-          disabled={loading}
+          disabled={loading || !agreedToTerms}
         >
           {loading ? "Uploading..." : "🚀 Upload & Clone Voice"}
         </button>

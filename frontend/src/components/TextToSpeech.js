@@ -8,9 +8,6 @@ export default function TextToSpeech() {
   const [audioUrl, setAudioUrl] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // Voice tag display
-  const displayVoiceName = "Cheryl";
-  const displayVoiceIcon = "🎤";
   const voiceId = "voice_cheryl_id";  // Change this to your actual voice ID
 
   const handleSpeak = async () => {
@@ -41,24 +38,6 @@ export default function TextToSpeech() {
   return (
     <div>
       <h3>Text to Speech</h3>
-      
-      {/* Voice Name Tag */}
-      <div style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '0.5rem',
-        padding: '0.5rem 1.25rem',
-        background: '#f1f5f9',
-        color: '#0f172a',
-        fontSize: '0.875rem',
-        fontWeight: '600',
-        borderRadius: '20px',
-        marginBottom: '1.5rem',
-        border: '1px solid #e2e8f0'
-      }}>
-        <span style={{ fontSize: '1.125rem' }}>{displayVoiceIcon}</span>
-        <span>{displayVoiceName}</span>
-      </div>
 
       <div className="form-group">
         <label className="form-label">Your Message</label>
