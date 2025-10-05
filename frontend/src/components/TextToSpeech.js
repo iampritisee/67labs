@@ -1,34 +1,35 @@
 import React, { useState } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
-import axios from 'axios';
+import { api } from "../api";
 
 export default function TextToSpeech() {
   const { getAccessTokenSilently } = useAuth0();
-  const [voiceId, setVoiceId] = useState("");
   const [text, setText] = useState("");
   const [audioUrl, setAudioUrl] = useState(null);
   const [loading, setLoading] = useState(false);
+
+  // Voice tag display
+  const displayVoiceName = "Cheryl";
+  const displayVoiceIcon = "🎤";
+  const voiceId = "voice_cheryl_id";  // Change this to your actual voice ID
 
   const handleSpeak = async () => {
     setLoading(true);
     try {
       const token = await getAccessTokenSilently();
-      console.log(text)
-      
-      const res = await axios.post('http://127.0.0.1:5000/tts', {
-        text: text,
-        voice_id: "9yaM1hISjlRJmYPNIIsm"  // Hardcoded voice ID
-      }, {
-        headers: {
-          "Content-Type": "application/json"
-        }
-      });
-  
-      // The response contains the filename and URL
-      const backendBaseUrl = 'http://127.0.0.1:5000';  // your backend base URL
+      const form = new FormData();
+      form.append("text", text);
+      form.append("voice_id", voiceId);
 
-      const audioUrl = backendBaseUrl + res.data.url;
-      setAudioUrl(audioUrl);
+      const res = await api.post("/elevenlabs/speak", form, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        responseType: "blob",
+      });
+
+      const url = URL.createObjectURL(res.data);
+      setAudioUrl(url);
     } catch (err) {
       console.error(err);
       alert("Error generating speech");
@@ -39,17 +40,45 @@ export default function TextToSpeech() {
 
   return (
     <div>
-      <h3>Text to Speech (6 7 Labs)</h3>
-      <textarea
-        placeholder="Type something..."
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-      />
-      <button onClick={handleSpeak} disabled={loading}>
-        {loading ? "Generating..." : "Generate Speech"}
+      <h3>Text to Speech</h3>
+      
+      {/* Voice Name Tag */}
+      <div style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '0.5rem',
+        padding: '0.5rem 1.25rem',
+        background: '#f1f5f9',
+        color: '#0f172a',
+        fontSize: '0.875rem',
+        fontWeight: '600',
+        borderRadius: '20px',
+        marginBottom: '1.5rem',
+        border: '1px solid #e2e8f0'
+      }}>
+        <span style={{ fontSize: '1.125rem' }}>{displayVoiceIcon}</span>
+        <span>{displayVoiceName}</span>
+      </div>
+
+      <div className="form-group">
+        <label className="form-label">Your Message</label>
+        <textarea
+          placeholder="Type the text you want to convert to speech..."
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+        />
+      </div>
+
+      <button 
+        onClick={handleSpeak} 
+        className={`btn btn-primary btn-full ${loading ? 'btn-loading' : ''}`}
+        disabled={loading}
+      >
+        {loading ? "Generating..." : "🔊 Generate Speech"}
       </button>
+
       {audioUrl && (
-        <div style={{ marginTop: 16 }}>
+        <div className="audio-container">
           <audio controls src={audioUrl}></audio>
         </div>
       )}

@@ -19,7 +19,7 @@ export default function Dashboard() {
     <div className="main-container">
       {/* Hero Section */}
       <div className="hero">
-        <h1>Welcome to 67 Labs</h1>
+        <h1>Welcome to <em>articulate</em></h1>
         <p>Unlock Your Voice with AI technology at your fingertips</p>
       </div>
 

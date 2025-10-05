@@ -42,7 +42,7 @@ export default function App() {
           <div className="login-container">
             {/* Logo/Brand */}
             <div className="login-logo">
-              <h1 className="brand-name">6 7 Labs</h1>
+              <h1 className="brand-name">articulate</h1>
               <div className="brand-tagline">Regain Your Voice</div>
             </div>
 
@@ -102,7 +102,7 @@ export default function App() {
       </div>
       
       <header className="app-header">
-        <div className="app-logo">6 7 Labs</div>
+        <div className="app-logo">articulate</div>
         <LogoutButton />
       </header>
       <Dashboard />

@@ -6,7 +6,7 @@ export default function AppHeader() {
 
   return (
     <header className="app-header">
-      <div className="app-logo">6 7 Labs</div>
+      <div className="app-logo">articulate</div>
       
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
         {user && (
