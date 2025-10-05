@@ -1,0 +1,11 @@
+fastapi
+python-multipart
+
+elevenlabs
+flask
+python-dotenv
+pydub
+opencv-python 
+mediapipe 
+numpy 
+tqdm
