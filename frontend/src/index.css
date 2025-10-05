@@ -839,24 +839,29 @@ pre {
   gap: 0.5rem;
   width: 100%;
   padding: 0.875rem 1rem;
-  background: var(--primary);
-  color: white;
+  background: white; /* changed from var(--primary) */
+  color: var(--primary); /* blue text */
   border-radius: var(--radius-md);
   font-size: 0.9375rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
-  border: none;
+  transition: all 0.15s ease;
+  border: 1px solid var(--primary); /* blue border */
 }
 
-.file-upload-label:hover {
-  background: var(--primary-dark);
+.file-upload-label:hover,
+.file-upload-label:active,
+.file-upload-label:focus {
+  background: var(--primary); /* make "next" blue */
+  color: white;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.18);
+  border-color: var(--primary);
 }
 
 .file-upload-label svg {
   flex-shrink: 0;
+  color: currentColor; /* inherit the text color (blue or white) */
 }
 
 .file-info {
