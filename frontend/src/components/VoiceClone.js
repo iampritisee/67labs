@@ -1,42 +1,55 @@
 import React, { useState } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
-import { api } from "../api";
+import axios from "axios";
 
 export default function VoiceClone() {
   const { getAccessTokenSilently } = useAuth0();
-  const [file, setFile] = useState(null);
+  const [files, setFiles] = useState([]);
   const [voiceName, setVoiceName] = useState("");
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   const handleFileChange = (e) => {
-    const selectedFile = e.target.files[0];
-    setFile(selectedFile);
+    const selectedFiles = Array.from(e.target.files);
+    setFiles(selectedFiles);
+  };
+
+  const removeFile = (indexToRemove) => {
+    setFiles(files.filter((_, index) => index !== indexToRemove));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setResult(null);
+    
     try {
       const token = await getAccessTokenSilently();
       const form = new FormData();
       form.append("name", voiceName);
-      form.append("file", file);
+      
+      // Append all files with the key "files" to match backend
+      files.forEach((file) => {
+        form.append("files", file);
+      });
 
-      const res = await api.post("/elevenlabs/clone", form, {
+      const res = await axios.post("http://127.0.0.1:5000/ivc", form, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
+      
       setResult(res.data);
     } catch (err) {
       console.error(err);
-      alert("Error cloning voice");
+      alert(err.response?.data?.error || "Error cloning voice");
     } finally {
       setLoading(false);
     }
   };
+
+  const totalSize = files.reduce((sum, file) => sum + file.size, 0);
 
   return (
     <div>
@@ -55,7 +68,7 @@ export default function VoiceClone() {
         </div>
 
         <div className="form-group">
-          <label className="form-label">Upload Audio Sample</label>
+          <label className="form-label">Upload Audio Samples (Multiple files supported)</label>
           <div className="file-upload-container">
             <input
               type="file"
@@ -63,6 +76,7 @@ export default function VoiceClone() {
               onChange={handleFileChange}
               required
               id="file-input"
+              multiple
               style={{ display: 'none' }}
             />
             <label htmlFor="file-input" className="file-upload-label">
@@ -71,16 +85,74 @@ export default function VoiceClone() {
                 <polyline points="17 8 12 3 7 8"></polyline>
                 <line x1="12" y1="3" x2="12" y2="15"></line>
               </svg>
-              {file ? 'Change File' : 'Choose Audio File'}
+              {files.length > 0 ? `Add More Files (${files.length} selected)` : 'Choose Audio Files'}
             </label>
-            {file && (
-              <div className="file-info">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
-                  <polyline points="13 2 13 9 20 9"></polyline>
-                </svg>
-                <span className="file-name">{file.name}</span>
-                <span className="file-size">({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+            
+            {files.length > 0 && (
+              <div style={{ marginTop: '1rem' }}>
+                <div style={{ 
+                  fontSize: '0.875rem', 
+                  color: 'var(--text-secondary)',
+                  marginBottom: '0.5rem',
+                  fontWeight: '600'
+                }}>
+                  Selected Files ({files.length}) - Total: {(totalSize / 1024 / 1024).toFixed(2)} MB
+                </div>
+                {files.map((file, index) => (
+                  <div 
+                    key={index} 
+                    className="file-info"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      marginBottom: '0.5rem',
+                      padding: '0.5rem',
+                      background: 'var(--bg-secondary)',
+                      borderRadius: '6px'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
+                        <polyline points="13 2 13 9 20 9"></polyline>
+                      </svg>
+                      <span className="file-name" style={{ fontWeight: '500' }}>{file.name}</span>
+                      <span className="file-size" style={{ color: 'var(--text-secondary)' }}>
+                        ({(file.size / 1024 / 1024).toFixed(2)} MB)
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeFile(index)}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--text-secondary)',
+                        cursor: 'pointer',
+                        padding: '0.25rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: '4px',
+                        transition: 'all 0.2s'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'var(--bg-tertiary)';
+                        e.currentTarget.style.color = '#ef4444';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'transparent';
+                        e.currentTarget.style.color = 'var(--text-secondary)';
+                      }}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                      </svg>
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -128,7 +200,7 @@ export default function VoiceClone() {
         <button 
           type="submit" 
           className={`btn btn-primary btn-full ${loading ? 'btn-loading' : ''}`}
-          disabled={loading || !agreedToTerms}
+          disabled={loading || !agreedToTerms || files.length === 0}
         >
           {loading ? "Uploading..." : "🚀 Upload & Clone Voice"}
         </button>
@@ -137,15 +209,37 @@ export default function VoiceClone() {
       {result && (
         <div className="result-box">
           <p><strong>✓ Voice cloned successfully!</strong></p>
-          {result.voice_id && (
+          {result.message && (
             <p style={{ marginTop: '0.5rem', color: 'var(--text-secondary)' }}>
-              Voice ID: <code style={{ 
-                background: 'var(--bg-secondary)', 
-                padding: '0.25rem 0.5rem', 
-                borderRadius: '4px',
-                fontFamily: 'monospace'
-              }}>{result.voice_id}</code>
+              {result.message}
             </p>
+          )}
+          {result.voice && (
+            <details style={{ 
+              marginTop: '0.75rem',
+              padding: '0.5rem',
+              background: 'var(--bg-secondary)',
+              borderRadius: '6px'
+            }}>
+              <summary style={{ 
+                cursor: 'pointer', 
+                fontWeight: '600',
+                color: 'var(--text-primary)'
+              }}>
+                View Voice Details
+              </summary>
+              <pre style={{ 
+                marginTop: '0.5rem',
+                padding: '0.75rem',
+                background: 'var(--bg-tertiary)',
+                borderRadius: '4px',
+                fontSize: '0.75rem',
+                overflow: 'auto',
+                maxHeight: '200px'
+              }}>
+                {JSON.stringify(result.voice, null, 2)}
+              </pre>
+            </details>
           )}
         </div>
       )}
