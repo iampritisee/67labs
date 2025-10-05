@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
-import { api } from "../api";
+import axios from 'axios';
 
 export default function TextToSpeech() {
   const { getAccessTokenSilently } = useAuth0();
@@ -13,19 +13,22 @@ export default function TextToSpeech() {
     setLoading(true);
     try {
       const token = await getAccessTokenSilently();
-      const form = new FormData();
-      form.append("text", text);
-      form.append("voice_id", voiceId);
-
-      const res = await api.post("/elevenlabs/speak", form, {
+      console.log(text)
+      
+      const res = await axios.post('http://127.0.0.1:5000/tts', {
+        text: text,
+        voice_id: "9yaM1hISjlRJmYPNIIsm"  // Hardcoded voice ID
+      }, {
         headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        responseType: "blob",
+          "Content-Type": "application/json"
+        }
       });
+  
+      // The response contains the filename and URL
+      const backendBaseUrl = 'http://127.0.0.1:5000';  // your backend base URL
 
-      const url = URL.createObjectURL(res.data);
-      setAudioUrl(url);
+      const audioUrl = backendBaseUrl + res.data.url;
+      setAudioUrl(audioUrl);
     } catch (err) {
       console.error(err);
       alert("Error generating speech");
@@ -37,11 +40,6 @@ export default function TextToSpeech() {
   return (
     <div>
       <h3>Text to Speech (6 7 Labs)</h3>
-      <input
-        placeholder="Voice ID"
-        value={voiceId}
-        onChange={(e) => setVoiceId(e.target.value)}
-      />
       <textarea
         placeholder="Type something..."
         value={text}
