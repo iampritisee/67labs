@@ -1,10 +1,11 @@
 import React, { useState } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
-import { api } from "../api";
+import axios from 'axios';
+
 
 export default function VoiceClone() {
   const { getAccessTokenSilently } = useAuth0();
-  const [file, setFile] = useState(null);
+  const [files, setFiles] = useState([]);
   const [voiceName, setVoiceName] = useState("");
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -16,9 +17,13 @@ export default function VoiceClone() {
       const token = await getAccessTokenSilently();
       const form = new FormData();
       form.append("name", voiceName);
-      form.append("file", file);
 
-      const res = await api.post("/elevenlabs/clone", form, {
+      // Append all selected files
+      files.forEach((file) => {
+        form.append("files", file);  // backend must accept "files" as array
+      });
+
+      const res = await axios.post("http://127.0.0.1:5000/ivc", form, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -49,13 +54,24 @@ export default function VoiceClone() {
         </div>
 
         <div className="form-group">
-          <label className="form-label">Upload Audio Sample</label>
+          <label className="form-label">Upload Audio Samples</label>
           <input
             type="file"
             accept="audio/*"
-            onChange={(e) => setFile(e.target.files[0])}
+            multiple
+            onChange={(e) => setFiles(Array.from(e.target.files))}
             required
           />
+          {files.length > 0 && (
+            <div style={{ marginTop: '10px' }}>
+              <strong>Selected files ({files.length}):</strong>
+              <ul>
+                {files.map((file, idx) => (
+                  <li key={idx}>{file.name}</li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
 
         <button 

@@ -6,6 +6,7 @@ from elevenlabs import ElevenLabs
 from dotenv import load_dotenv
 from pydub import AudioSegment
 from contextlib import ExitStack
+from flask_cors import CORS
 
 # Load .env variables
 load_dotenv()
@@ -19,8 +20,9 @@ client = ElevenLabs(
 )
 
 
-
 app = Flask(__name__)
+CORS(app, resources={r"/tts": {"origins": "http://localhost:3000"}, r"/ivc": {"origins": "http://localhost:3000"}})
+
 
 # Initialize ElevenLabs client
 client = ElevenLabs(api_key=os.getenv("ELEVENLABS_API_KEY"))
@@ -66,38 +68,45 @@ UPLOAD_FOLDER = "./static/uploads"
 
 @app.route("/ivc", methods=["POST"])
 def ivc():
-    data = request.get_json()
-
-    name = data.get("name")
-    filenames = data.get("filenames")
+    name = request.form.get("name")
+    files = request.files.getlist("files")  # Get multiple files
+    
+    if not name or not files:
+        return jsonify({"error": "Missing 'name' or 'files'"}), 400
+    
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-    if not name or not filenames:
-        return jsonify({"error": "Missing 'name' or 'filenames'"}), 400
-
-    original_paths = [os.path.join(UPLOAD_FOLDER, secure_filename(fn)) for fn in filenames]
-
-    # Check all files exist
-    missing_files = [f for f in original_paths if not os.path.exists(f)]
-    if missing_files:
-        return jsonify({"error": f"Some files are missing: {missing_files}"}), 400
-
+    
     try:
-        # Open all files
+        # Save files temporarily and collect file objects
+        file_objects = []
+        saved_paths = []
+        
+        for file in files:
+            filename = secure_filename(file.filename)
+            filepath = os.path.join(UPLOAD_FOLDER, filename)
+            file.save(filepath)
+            saved_paths.append(filepath)
+        
+        # Open all files for ElevenLabs
         with ExitStack() as stack:
-            file_objects = [stack.enter_context(open(path, 'rb')) for path in original_paths]
+            file_objects = [stack.enter_context(open(path, 'rb')) for path in saved_paths]
             
             # Send to ElevenLabs
             response = client.voices.ivc.create(
                 name=name,
                 files=file_objects,
-                description="Voice cloned from converted MP3 files"
+                description="Voice cloned from uploaded audio files"
             )
-
-            return jsonify({
-                "message": "Voice cloned successfully",
-                "voice": response.dict()
-            })
+        
+        # Optionally delete temp files after cloning
+        # for path in saved_paths:
+        #     os.remove(path)
+        
+        return jsonify({
+            "message": "Voice cloned successfully",
+            "voice": response.dict() if hasattr(response, 'dict') else str(response)
+        })
+        
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     
