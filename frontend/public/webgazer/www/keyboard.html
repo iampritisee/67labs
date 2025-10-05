@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Onscreen Keyboard</title>
+  <style>
+    :root{ --bg:#f5f7fb; --card:#fff; --key:#edf2fb; --key-border:#d6dbe4; --accent:#2563eb }
+  html,body{height:100%;}
+  body { font-family: system-ui, Arial, sans-serif; margin:0; background:var(--bg); display:flex; align-items:stretch; justify-content:center; }
+  html,body{height:100%;overflow:hidden}
+  .keyboard-wrap { position:relative; width:100vw; height:100vh; background:var(--card); padding:12px; box-sizing:border-box; border-radius:0; box-shadow:none; display:flex; flex-direction:column; align-items:stretch }
+  /* center controls so the textarea sits in the middle horizontally */
+  .controls { display:flex; gap:10px; justify-content:center; align-items:center; margin-bottom:12px }
+  .display { width:100%; box-sizing:border-box; font-size:18px; padding:12px;border:1px solid #d7dbe0;border-radius:8px; margin:0; max-width:90vw }
+  /* Use a 4-row grid to fill the viewport vertically without scrolling */
+  .keys { display:grid; grid-template-rows: 1fr 1fr 1fr 1fr; grid-auto-rows: 1fr; gap:4px; margin-top:8px; align-items:stretch; justify-items:center; flex:1 }
+  .row { display:flex; gap:4px; width:100%; justify-content:center; align-items:stretch; height:100%; }
+  .key { flex: 1 1 140px; max-width:220px; min-width:64px; height:100%; display:flex; align-items:center; justify-content:center; border-radius:6px; background:rgba(237,242,251,0.04); border:1px solid #0b4ef3; cursor:pointer; user-select:none; font-weight:800; font-size:calc(18px + 1.6vw); color:#072a6b }
+  /* invisible spacer key to shift rows away from the webcam preview */
+  .key.spacer { background:transparent; border:0; pointer-events:none; box-shadow:none; opacity:0; }
+  .key.spacer { background:transparent; border:0; pointer-events:none; box-shadow:none; opacity:0; }
+  .key.wide { flex: 2 1 300px }
+  .key.action { background:var(--accent); color:white; border-color:var(--accent) }
+    .hint { font-size:13px;color:#6b7280;margin-top:10px }
+    .key:active { transform:translateY(1px) }
+    .exit-btn { background:transparent; border:1px solid #e5e7eb; padding:8px 12px; border-radius:8px; cursor:pointer; color:#111 }
+    @media (max-width:1200px){ .key{ flex:0 0 110px; height:90px; font-size:26px } .key.wide{ flex:0 0 260px } }
+    @media (max-width:700px){ .key{ flex:0 0 80px; height:64px; font-size:20px } .key.wide{ flex:0 0 180px } }
+
+    /* webgazer preview styling (video/canvas) */
+    #webgazerVideoContainer, #webgazerVideo, #webgazerVideoWrapper, #webgazerVideoCanvas {
+      position:fixed !important; top:12px; left:12px; width:220px !important; height:auto !important; z-index:200000 !important; border-radius:8px; box-shadow:0 6px 20px rgba(12,30,60,0.18); pointer-events:auto !important;
+    }
+    #webgazerVideoContainer.hiddenPreview { display:block !important; }
+    #webgazerVideo, #webgazerVideoCanvas { pointer-events:none; }
+  /* calibration dots (visual only) */
+  .cal-dot { position:fixed; width:18px; height:18px; border-radius:50%; background:rgba(37,99,235,0.95); box-shadow:0 4px 12px rgba(12,30,60,0.25); z-index:400000; transform:translate(-50%,-50%); display:flex; align-items:center; justify-content:center; cursor:pointer }
+  .cal-dot::after{ content:''; width:10px; height:10px; border-radius:50%; background:rgba(255,255,255,0.9); opacity:0.9 }
+  .cal-dot:active { transform:translate(-50%,-50%) scale(0.92) }
+  .cal-dot.pulse { animation:calPulse 420ms ease-out; }
+  @keyframes calPulse { 0%{transform:translate(-50%,-50%) scale(1)} 50%{transform:translate(-50%,-50%) scale(1.35)} 100%{transform:translate(-50%,-50%) scale(1)} }
+  </style>
+  </head>
+  <body>
+
+    <div class="keyboard-wrap">
+      <div class="controls">
+  <div id="leftControl" style="display:flex;align-items:center;gap:8px;position:relative;">
+          <!-- placeholders kept for fallback alignment but we'll compute exact mid-point at runtime -->
+          <div style="width:calc(140px + 10px);" aria-hidden="true"></div>
+          <div style="width:calc(140px + 10px);" aria-hidden="true"></div>
+          <textarea id="output" class="display" rows="2" placeholder="Type here..." readonly></textarea>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <label style="font-size:13px;color:#6b7280;margin-left:8px">Dwell: <span id="dwellValue">3000 ms</span></label>
+          <input id="dwellRange" type="range" min="500" max="5000" step="100" value="3000" style="vertical-align:middle;margin-left:8px">
+        </div>
+      </div>
+
+      <div id="keys" class="keys"></div>
+
+      <div id="wgStatus" class="hint" style="margin-top:8px">Status: initializing...</div>
+    </div>
+
+    <!-- Calibration dots (visual only) -->
+    <div id="calTopLeft" class="cal-dot" title="cal-top-left" style="top:6%;left:6%"></div>
+    <div id="calTopCenter" class="cal-dot" title="cal-top-center" style="top:6%;left:50%"></div>
+    <div id="calTopRight" class="cal-dot" title="cal-top-right" style="top:6%;right:6%;left:auto"></div>
+
+    <div id="calMiddle" class="cal-dot" title="cal-middle" style="top:50%;left:50%"></div>
+  <!-- Middle side dots (left/right of middle row) -->
+  <div id="calMiddleLeft" class="cal-dot" title="cal-middle-left" style="top:50%;left:20%"></div>
+  <div id="calMiddleRight" class="cal-dot" title="cal-middle-right" style="top:50%;right:20%;left:auto"></div>
+
+    <div id="calBottomLeft" class="cal-dot" title="cal-bottom-left" style="bottom:6%;left:6%;top:auto"></div>
+    <div id="calBottomCenter" class="cal-dot" title="cal-bottom-center" style="bottom:6%;left:50%;top:auto"></div>
+    <div id="calBottomRight" class="cal-dot" title="cal-bottom-right" style="bottom:6%;right:6%;left:auto;top:auto"></div>
+
+    <script src="https://d3js.org/d3.v3.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.8.1/localforage.js"></script>
+  <script src="./webgazer.js"></script>
+  <script>
+    (function(){
+      const keysEl = document.getElementById('keys');
+      const output = document.getElementById('output');
+
+      const rows = [
+        ['Q','W','E','R','T','Y','U','I','O'],
+        ['P','A','S','D','F','G','H','J'],
+        ['K','L','Z','X','C','V','B'],
+      ];
+
+      function makeKey(label, classes = ''){
+        const b = document.createElement('div');
+        b.className = 'key ' + classes;
+        b.setAttribute('data-label', label);
+        b.tabIndex = 0;
+        b.style.position = 'relative';
+
+        const span = document.createElement('div');
+        span.textContent = label;
+        span.style.zIndex = 2;
+        b.appendChild(span);
+
+  // progress overlay
+  const progress = document.createElement('div');
+  progress.className = 'dwell-progress';
+  progress.style.position = 'absolute';
+  progress.style.left = '0';
+  progress.style.bottom = '0';
+  progress.style.height = '8px';
+  progress.style.width = '0%';
+  progress.style.background = 'linear-gradient(90deg,var(--accent), #60a5fa)';
+  progress.style.borderRadius = '0 0 12px 12px';
+  progress.style.zIndex = 1;
+        b.appendChild(progress);
+
+        // Click and keyboard activation disabled: keys are activated only via gaze/dwell
+        // b.addEventListener('click', () => onKey(label));
+        // b.addEventListener('keydown', (e) => { if(e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onKey(label); } });
+        return b;
+      }
+
+      // Build keys into rows for better full-width layout
+      function makeSpacer(){ const s = document.createElement('div'); s.className = 'key spacer'; s.setAttribute('data-label',''); return s; }
+      rows.forEach((r, idx) => {
+        const rowEl = document.createElement('div'); rowEl.className = 'row';
+        // For the top row, insert two invisible spacers so Q/W shift right (avoid webcam overlap)
+        if(idx === 0){ rowEl.appendChild(makeSpacer()); rowEl.appendChild(makeSpacer()); }
+        r.forEach(ch => rowEl.appendChild(makeKey(ch)));
+        keysEl.appendChild(rowEl);
+      });
+
+      // previous runtime alignment removed so stylesheet can center the textbox
+
+      // action row
+      const actionRow = document.createElement('div'); actionRow.className = 'row';
+  // include N and M adjacent to space for easier access
+  actionRow.appendChild(makeKey('N'));
+  actionRow.appendChild(makeKey('M'));
+  actionRow.appendChild(makeKey('Space','wide'));
+  actionRow.appendChild(makeKey('Backspace','action wide'));
+  actionRow.appendChild(makeKey('Enter','action wide'));
+  actionRow.appendChild(makeKey('Exit','action wide'));
+      keysEl.appendChild(actionRow);
+
+      function onKey(label){
+        if(label === 'Backspace'){
+          output.value = output.value.slice(0,-1);
+        } else if(label === 'Space'){
+          output.value += ' ';
+        } else if(label === 'Enter'){
+          output.value += '\n';
+        } else if(label === 'Exit'){
+          // navigate to root
+          window.location.href = '/';
+          return;
+        } else {
+          output.value += label;
+        }
+        // Keep focus for keyboard accessibility
+        output.focus();
+      }
+
+      // Allow actual keyboard typing (optional): synchronize physical keyboard to the onscreen box
+      window.addEventListener('keydown', (e) => {
+        if(e.target === output) return;
+        if(e.key === 'Backspace'){
+          e.preventDefault(); output.value = output.value.slice(0,-1);
+        } else if(e.key === 'Enter'){
+          e.preventDefault(); output.value += '\n';
+        } else if(e.key === ' '){
+          e.preventDefault(); output.value += ' ';
+        } else if(e.key.length === 1 && /[a-zA-Z]/.test(e.key)){
+          output.value += e.key.toUpperCase();
+        }
+      });
+
+      // --- Collision system (adapted from collision.js) ---
+      // We'll create a force-layout of balls and a prediction marker using d3.
+      var force = null;
+      var nodes = null;
+      var webgazerCanvas = null;
+      var previewWidth = 320; // fallback
+
+      async function setupCollisionSystem() {
+        // create a simple overlay SVG that contains the prediction square and two eyeline indicators
+        var width = window.innerWidth;
+        var height = window.innerHeight;
+
+        var svg = d3.select('body').append('svg')
+          .attr('id','collisionSVG')
+          .attr('width', width)
+          .attr('height', height)
+          .style('top','0px')
+          .style('left','0px')
+          .style('margin','0px')
+          .style('position','absolute')
+          .style('z-index', 300000)
+          .style('pointer-events','none'); // let clicks go through
+
+        // two eye lines
+        svg.append('line')
+          .attr('id', 'eyeline1')
+          .attr('stroke-width', 2)
+          .attr('stroke', 'red');
+
+        svg.append('line')
+          .attr('id', 'eyeline2')
+          .attr('stroke-width', 2)
+          .attr('stroke', 'red');
+
+        // prediction square
+        svg.append('rect')
+          .attr('id','predictionSquare')
+          .attr('width',6)
+          .attr('height',6)
+          .attr('fill','red')
+          .style('pointer-events','none');
+      }
+
+      // --- Dwell detection logic ---
+      let dwellKey = null;
+      let dwellStart = 0;
+      const DWELL_MS = 3000;
+
+  // hook up dwell slider (bound later on load)
+  let dwellSliderEl = null;
+  let dwellValueEl = null;
+
+      function updateDwell(data){
+        if(!data) { resetDwell(); return; }
+        const x = data.x;
+        const y = data.y;
+
+        // Find which key contains the gaze point
+        const keyEls = document.querySelectorAll('.key');
+        let hit = null;
+        for(const k of keyEls){
+          const r = k.getBoundingClientRect();
+          if(x >= r.left && x <= r.right && y >= r.top && y <= r.bottom){ hit = k; break; }
+        }
+
+        if(hit){
+          const label = hit.getAttribute('data-label');
+          if(dwellKey !== hit){
+            dwellKey = hit;
+            dwellStart = performance.now();
+            // reset progress bars
+            document.querySelectorAll('.dwell-progress').forEach(p=>p.style.width='0%');
+          }
+          const elapsed = performance.now() - dwellStart;
+          const threshold = window.__DWELL_MS || DWELL_MS;
+          const pct = Math.min(1, elapsed / threshold) * 100;
+          const prog = hit.querySelector('.dwell-progress');
+          if(prog) prog.style.width = pct + '%';
+          if(elapsed >= threshold){
+            // trigger key
+            const label = hit.getAttribute('data-label');
+            // small visual flash
+            hit.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.18)';
+            setTimeout(()=>{ hit.style.boxShadow=''; }, 300);
+            onKey(label);
+            // cooldown: prevent immediate re-trigger
+            dwellKey = null; dwellStart = performance.now() + 500;
+          }
+        } else {
+          resetDwell();
+        }
+      }
+
+      function resetDwell(){
+        dwellKey = null;
+        dwellStart = 0;
+        document.querySelectorAll('.dwell-progress').forEach(p=>p.style.width='0%');
+      }
+
+      function bindDwellSlider(){
+        dwellSliderEl = document.getElementById('dwellRange');
+        dwellValueEl = document.getElementById('dwellValue');
+        if(!dwellSliderEl || !dwellValueEl) return;
+        dwellSliderEl.value = DWELL_MS;
+        dwellValueEl.textContent = DWELL_MS + ' ms';
+        dwellSliderEl.addEventListener('input', (e)=>{
+          const v = Number(e.target.value);
+          // update constant via global variable reassignment
+          window.__DWELL_MS = v;
+          dwellValueEl.textContent = v + ' ms';
+        });
+      }
+
+      // --- Gaze listener that updates collision + dwell ---
+      async function combinedGazeListener(data, elapsed){
+        if(!data) return;
+
+        // update prediction square
+        const sq = d3.select('#predictionSquare');
+        if(sq) sq.attr('x', data.x - 3).attr('y', data.y - 3);
+
+        // attempt to draw eyelines using facemesh points if available
+        try{
+          const fmPositions = await webgazer.getTracker().getPositions();
+          const whr = webgazer.getVideoPreviewToCameraResolutionRatio ? webgazer.getVideoPreviewToCameraResolutionRatio() : [1,1];
+          // left eye approx index 145, right eye 374 as in facemesh
+          if(fmPositions && fmPositions[145] && fmPositions[374]){
+            d3.select('#eyeline1')
+              .attr('x1', data.x)
+              .attr('y1', data.y)
+              .attr('x2', (previewWidth || 320) - fmPositions[145][0] * whr[0])
+              .attr('y2', fmPositions[145][1] * whr[1]);
+
+            d3.select('#eyeline2')
+              .attr('x1', data.x)
+              .attr('y1', data.y)
+              .attr('x2', (previewWidth || 320) - fmPositions[374][0] * whr[0])
+              .attr('y2', fmPositions[374][1] * whr[1]);
+          }
+        }catch(e){
+          // ignore tracker errors
+        }
+
+        // dwell detection
+        updateDwell(data);
+      }
+
+      // --- Init webgazer and collision on load ---
+      window.addEventListener('load', async () => {
+        if (!window.saveDataAcrossSessions) {
+          try{ localforage.setItem('webgazerGlobalData', null); localforage.setItem('webgazerGlobalSettings', null); }catch(e){}
+        }
+        try{
+          const wg = await webgazer.setRegression('ridge').setTracker('TFFacemesh').begin();
+            wg.showVideoPreview(true).showPredictionPoints(false).applyKalmanFilter(true);
+          previewWidth = webgazer.params.videoViewerWidth || 320;
+
+          // style the preview container/canvas/video if present
+          setTimeout(()=>{
+            try{
+              const vid = document.getElementById('webgazerVideo');
+              const canvas = document.getElementById('webgazerVideoCanvas');
+              const container = document.getElementById('webgazerVideoContainer');
+              if(container){ container.style.display = 'block'; container.style.pointerEvents = 'auto'; }
+              if(vid) { vid.style.width = '220px'; vid.style.right = '12px'; vid.style.top = '12px'; vid.style.position='fixed'; vid.style.zIndex=200000; }
+              if(canvas) { canvas.style.width = '220px'; canvas.style.right = '12px'; canvas.style.top = '12px'; canvas.style.position='fixed'; canvas.style.zIndex=200000; }
+            }catch(e){}
+          }, 250);
+        }catch(e){ console.warn('webgazer init failed', e); }
+
+  await setupCollisionSystem();
+  // initialize dwell slider binding
+  window.__DWELL_MS = DWELL_MS;
+  bindDwellSlider();
+
+        // no status polling; keep initialization and gaze listener setup
+
+        // set gaze listener
+        webgazer.setGazeListener(combinedGazeListener);
+  // no camera control buttons on this layout
+      });
+
+      // --- Position top calibration dots relative to top-row keys ---
+      function positionTopDots(){
+        try{
+          // select visible top-row keys (first .row element)
+          const topRow = document.querySelectorAll('.row')[0];
+          if(!topRow) return;
+          // filter out spacer keys
+          const keys = Array.from(topRow.querySelectorAll('.key')).filter(k=>!k.classList.contains('spacer'));
+          if(keys.length === 0) return;
+
+          // choose left-most key, prefer the 'R' key for the middle, and right-most key
+          const leftKey = keys[0];
+          // prefer explicit 'R' key (user requested middle aligned to R); fallback to center
+          let midKey = keys.find(k => k.getAttribute('data-label') === 'R');
+          if(!midKey) midKey = keys[Math.floor((keys.length - 1) / 2)];
+          const rightKey = keys[keys.length - 1];
+
+          const leftRect = leftKey.getBoundingClientRect();
+          const midRect = midKey.getBoundingClientRect();
+          const rightRect = rightKey.getBoundingClientRect();
+
+          // place dots at the top border center of each key (slightly above to appear on the border)
+          const offsetY = -6; // pixels above the top edge to better align with key border
+          const topLeftDot = document.getElementById('calTopLeft');
+          const topCenterDot = document.getElementById('calTopCenter');
+          const topRightDot = document.getElementById('calTopRight');
+          if(topLeftDot){ topLeftDot.style.left = (leftRect.left + leftRect.width/2) + 'px'; topLeftDot.style.top = (leftRect.top + offsetY) + 'px'; topLeftDot.style.right = 'auto'; }
+          if(topCenterDot){ topCenterDot.style.left = (midRect.left + midRect.width/2) + 'px'; topCenterDot.style.top = (midRect.top + offsetY) + 'px'; topCenterDot.style.right = 'auto'; }
+          if(topRightDot){ topRightDot.style.left = (rightRect.left + rightRect.width/2) + 'px'; topRightDot.style.top = (rightRect.top + offsetY) + 'px'; topRightDot.style.right = 'auto'; }
+        }catch(e){ /* ignore layout errors */ }
+      }
+
+      // call once after load and on resize/orientation change so dots stay aligned
+      window.addEventListener('load', ()=> setTimeout(positionTopDots, 60));
+      window.addEventListener('resize', ()=> setTimeout(positionTopDots, 30));
+      // Position bottom dots too
+      function positionBottomDots(){
+        try{
+          // action row is the last .row added (contains N, M, Space, Backspace, Enter, Exit)
+          const rows = document.querySelectorAll('.row');
+          if(!rows || rows.length === 0) return;
+          const actionRow = rows[rows.length - 1];
+          const keys = Array.from(actionRow.querySelectorAll('.key'));
+          if(keys.length === 0) return;
+
+          // left-most and right-most keys in the action row
+          const leftKey = keys[0];
+          const rightKey = keys[keys.length - 1];
+
+          // for center dot, find Space and Backspace and compute midpoint between their top/bottom edges
+          const spaceKey = keys.find(k => k.getAttribute('data-label') === 'Space');
+          const backKey = keys.find(k => k.getAttribute('data-label') === 'Backspace');
+
+          // fallback: use center key if space/backspace not found
+          let centerX = null;
+          let centerY = null;
+          if(spaceKey && backKey){
+            const sRect = spaceKey.getBoundingClientRect();
+            const bRect = backKey.getBoundingClientRect();
+            // midpoint horizontally between the right edge of Space and left edge of Backspace
+            centerX = (sRect.right + bRect.left) / 2;
+            // vertically align to bottom border of these keys
+            centerY = (Math.max(sRect.bottom, bRect.bottom));
+          } else {
+            const midKey = keys[Math.floor((keys.length - 1) / 2)];
+            const mRect = midKey.getBoundingClientRect();
+            centerX = mRect.left + mRect.width/2;
+            centerY = mRect.bottom;
+          }
+
+          const leftRect = leftKey.getBoundingClientRect();
+          const rightRect = rightKey.getBoundingClientRect();
+
+          const offsetY = 8; // pixels below the bottom edge to visually sit on the bottom border
+          const bottomLeftDot = document.getElementById('calBottomLeft');
+          const bottomCenterDot = document.getElementById('calBottomCenter');
+          const bottomRightDot = document.getElementById('calBottomRight');
+          if(bottomLeftDot){ bottomLeftDot.style.left = (leftRect.left + leftRect.width/2) + 'px'; bottomLeftDot.style.top = (leftRect.bottom + offsetY) + 'px'; bottomLeftDot.style.bottom = 'auto'; }
+          if(bottomCenterDot && centerX !== null){ bottomCenterDot.style.left = centerX + 'px'; bottomCenterDot.style.top = (centerY + offsetY) + 'px'; bottomCenterDot.style.bottom = 'auto'; }
+          if(bottomRightDot){ bottomRightDot.style.left = (rightRect.left + rightRect.width/2) + 'px'; bottomRightDot.style.top = (rightRect.bottom + offsetY) + 'px'; bottomRightDot.style.bottom = 'auto'; }
+        }catch(e){ /* ignore */ }
+      }
+
+      window.addEventListener('load', ()=> setTimeout(positionBottomDots, 80));
+      window.addEventListener('resize', ()=> setTimeout(positionBottomDots, 40));
+
+      // Position middle-side dots (center of the middle row's left/right keys)
+      function positionSideMiddleDots(){
+        try{
+          // middle visual row is the second .row element (index 1)
+          const rows = document.querySelectorAll('.row');
+          if(!rows || rows.length < 2) return;
+          const middleRow = rows[1];
+          const keys = Array.from(middleRow.querySelectorAll('.key')).filter(k=>!k.classList.contains('spacer'));
+          if(keys.length === 0) return;
+
+          // try to place left dot immediately to the left of 'P' and right dot immediately to the right of 'J'
+          const pKey = keys.find(k => k.getAttribute('data-label') === 'P') || keys[0];
+          const jKey = keys.find(k => k.getAttribute('data-label') === 'J') || keys[keys.length - 1];
+          const pRect = pKey.getBoundingClientRect();
+          const jRect = jKey.getBoundingClientRect();
+
+          const midLeft = document.getElementById('calMiddleLeft');
+          const midRight = document.getElementById('calMiddleRight');
+          // place just outside the key edges (account for dot radius ~9px)
+          const dotRadius = 9;
+          if(midLeft){ midLeft.style.left = (pRect.left - dotRadius - 4) + 'px'; midLeft.style.top = (pRect.top + pRect.height/2) + 'px'; midLeft.style.right = 'auto'; }
+          if(midRight){ midRight.style.left = (jRect.right + dotRadius + 4) + 'px'; midRight.style.top = (jRect.top + jRect.height/2) + 'px'; midRight.style.right = 'auto'; }
+        }catch(e){ /* ignore */ }
+      }
+
+      window.addEventListener('load', ()=> setTimeout(positionSideMiddleDots, 70));
+      window.addEventListener('resize', ()=> setTimeout(positionSideMiddleDots, 35));
+
+      function setStatus(text, isError){
+        const el = document.getElementById('wgStatus');
+        if(!el) return; el.textContent = 'Status: ' + text; el.style.color = isError ? '#b91c1c' : '#0f172a';
+      }
+
+      async function initPreviewStyles(){
+        try{
+          const vid = document.getElementById('webgazerVideo');
+          const canvas = document.getElementById('webgazerVideoCanvas');
+          const container = document.getElementById('webgazerVideoContainer');
+          if(container){ container.style.display = 'block'; container.style.pointerEvents = 'auto'; }
+          if(vid){ vid.style.width = '240px'; vid.style.right = '12px'; vid.style.top = '12px'; vid.style.position='fixed'; vid.style.zIndex=200000; vid.style.display='block'; }
+          if(canvas){ canvas.style.width = '240px'; canvas.style.right = '12px'; canvas.style.top = '12px'; canvas.style.position='fixed'; canvas.style.zIndex=200000; canvas.style.display='block'; }
+          if(vid || canvas) { setStatus('Preview visible'); return true; }
+          setStatus('Preview not found', true); return false;
+        }catch(e){ setStatus('Preview init error: ' + e.message, true); return false; }
+      }
+
+      // retryWebgazer removed - no manual retry UI
+
+    })();
+    // calibration dot click animation (visual-only)
+    (function(){
+      const dots = document.querySelectorAll('.cal-dot');
+      dots.forEach(d => {
+        d.addEventListener('click', (e) => {
+          // add temporary pulse class to animate
+          d.classList.remove('pulse');
+          // force reflow
+          void d.offsetWidth;
+          d.classList.add('pulse');
+          // small ripple by scaling inner dot
+          setTimeout(()=> d.classList.remove('pulse'), 500);
+        });
+      });
+    })();
+  </script>
+</body>
+</html>
