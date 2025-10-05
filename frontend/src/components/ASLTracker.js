@@ -15,11 +15,6 @@ export default function ASLInterpreter() {
   const videoRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const recordedChunksRef = useRef([]);
-
-  const displayVoiceName = "Cheryl";
-  const displayVoiceIcon = "🎤";
-  const VOICE_ID = "9yaM1hISjlRJmYPNIIsm"; // Rachel voice - replace with your actual voice ID
-
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -107,7 +102,6 @@ export default function ASLInterpreter() {
 
     const formData = new FormData();
     formData.append('video', videoFile);
-    formData.append('voice_id', VOICE_ID);
 
     try {
       // Use axios.post correctly
@@ -156,25 +150,9 @@ export default function ASLInterpreter() {
         }}>
           ASL Fingerspelling Interpreter
         </h2>
-        
         <div style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '0.5rem',
-          padding: '0.5rem 1.25rem',
-          background: '#f1f5f9',
-          color: '#0f172a',
-          fontSize: '0.875rem',
-          fontWeight: '600',
-          borderRadius: '20px',
-          marginTop: '1rem',
-          border: '1px solid #e2e8f0'
         }}>
-          <span style={{ fontSize: '1.125rem' }}>{displayVoiceIcon}</span>
-          <span>{displayVoiceName}</span>
-        </div>
-
-        <p style={{ 
+        </div><p style={{ 
           color: '#64748b', 
           fontSize: '1rem', 
           marginTop: '1rem'
