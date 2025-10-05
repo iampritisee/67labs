@@ -27,20 +27,65 @@ export default function App() {
 
   if (!isAuthenticated) {
     return (
-      <div style={{ 
-        display: 'flex', 
-        flexDirection: 'column',
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        minHeight: '100vh',
-        gap: '1rem'
-      }}>
-        <h1 className="gradient-text">6-7 Labs</h1>
-        <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-          Please log in to access the voice suite
-        </p>
-        <LoginButton />
-      </div>
+      <>
+        {/* Lava Lamp Background */}
+        <div className="lava-lamp-bg">
+          <div className="lava-blob"></div>
+          <div className="lava-blob"></div>
+          <div className="lava-blob"></div>
+          <div className="lava-blob"></div>
+          <div className="lava-blob"></div>
+          <div className="lava-blob"></div>
+        </div>
+
+        <div className="login-page">
+          <div className="login-container">
+            {/* Logo/Brand */}
+            <div className="login-logo">
+              <h1 className="brand-name">6 7 Labs</h1>
+              <div className="brand-tagline">Regain Your Voice</div>
+            </div>
+
+            {/* Headline */}
+            <h2 className="login-headline">
+              Welcome Back
+            </h2>
+
+            {/* Subheadline */}
+            <p className="login-subheadline">
+              Sign in to access your voice suite
+            </p>
+
+            {/* CTA Button */}
+            <LoginButton />
+
+            {/* Divider */}
+            <div className="login-divider">
+              <span>Made at HackUTA 2025</span>
+            </div>
+
+            {/* Features */}
+            <div className="login-features-grid">
+              <div className="feature-card">
+                <div className="feature-icon-large">🎙️</div>
+                <div className="feature-title">Voice Clone</div>
+              </div>
+              <div className="feature-card">
+                <div className="feature-icon-large">💬</div>
+                <div className="feature-title">Text to Speech</div>
+              </div>
+              <div className="feature-card">
+                <div className="feature-icon-large">👋</div>
+                <div className="feature-title">ASL Tools</div>
+              </div>
+              <div className="feature-card">
+                <div className="feature-icon-large">👁️</div>
+                <div className="feature-title">Eye Gaze</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </>
     );
   }
 
@@ -57,7 +102,7 @@ export default function App() {
       </div>
       
       <header className="app-header">
-        <div className="app-logo">6-7 Labs</div>
+        <div className="app-logo">6 7 Labs</div>
         <LogoutButton />
       </header>
       <Dashboard />

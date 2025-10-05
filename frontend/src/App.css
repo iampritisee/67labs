@@ -44,10 +44,6 @@ body {
   min-height: 100vh;
 }
 
-/* ========================================
-   HEADER / NAVBAR
-   ======================================== */
-
 .app-header {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
