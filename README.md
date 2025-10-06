@@ -104,9 +104,8 @@ Creating an interface to accommodate the many forms of alternative communication
 
 ---
 
-## 🚀 Try It Out 
-- URL 
-- GitHub    
+## 🚀 Check It Out 
+- [Devpost ](https://devpost.com/software/project-name-3qd804?ref_content=my-projects-tab&ref_feature=my_projects)
 
 ---
 
